@@ -14,6 +14,9 @@
   --radius-m: 16px;
   --radius-s: 12px;
   --nav-h: 84px;
+  /* Отступы под системные элементы: в полноэкранном режиме сверху кнопки Telegram и статус-бар */
+  --safe-top: calc(var(--tg-safe-area-inset-top, env(safe-area-inset-top, 0px)) + var(--tg-content-safe-area-inset-top, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
   --ease-out: cubic-bezier(.22,.9,.3,1);
   --ease-spring: cubic-bezier(.34,1.36,.5,1);
   color-scheme: dark;
@@ -34,7 +37,7 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 .app { min-height: 100vh; display: flex; flex-direction: column; }
-.screen { flex: 1; padding: 12px 16px calc(var(--nav-h) + 28px); display: flex; flex-direction: column; gap: 16px; max-width: 560px; width: 100%; margin: 0 auto; }
+.screen { flex: 1; padding: calc(12px + var(--safe-top)) 16px calc(var(--nav-h) + 28px + var(--safe-bottom)); display: flex; flex-direction: column; gap: 16px; max-width: 560px; width: 100%; margin: 0 auto; }
 .screen-title { margin: 6px 2px 0; font-size: 24px; font-weight: 700; letter-spacing: -0.2px; }
 .screen-sub { margin: -10px 2px 0; color: var(--muted); font-size: 14px; }
 .row { display: flex; align-items: center; gap: 10px; }
@@ -97,7 +100,7 @@ textarea.input { height: auto; min-height: 76px; padding: 12px 14px; resize: ver
 .btn.small { height: 40px; font-size: 14px; width: auto; padding: 0 16px; border-radius: 12px; }
 
 /* Нижняя навигация: плюс по центру */
-.nav { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--bg) 72%, rgba(27,30,26,0)); z-index: 20; transition: transform 320ms var(--ease-out), opacity 240ms ease; }
+.nav { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 14px calc(12px + var(--safe-bottom)); background: linear-gradient(to top, var(--bg) 72%, rgba(27,30,26,0)); z-index: 20; transition: transform 320ms var(--ease-out), opacity 240ms ease; }
 .nav.hidden { transform: translateY(120%); opacity: 0; pointer-events: none; }
 .nav-bar { display: grid; grid-template-columns: 1fr 1fr 64px 1fr 1fr; align-items: center; background: var(--surface); border-radius: 28px; padding: 4px; max-width: 480px; margin: 0 auto; }
 .nav-bar > button { height: 48px; border: none; border-radius: 22px; background: none; color: var(--muted); font-size: 13px; font-weight: 500; position: relative; transition: color 220ms ease, background-color 260ms ease, transform 140ms ease; }
@@ -110,7 +113,7 @@ textarea.input { height: auto; min-height: 76px; padding: 12px 14px; resize: ver
 /* Шторка */
 .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 40; animation: fade 220ms ease-out; transition: opacity 220ms ease; }
 .sheet-bg.closing { opacity: 0; }
-.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: var(--surface); border-radius: 26px 26px 0 0; padding: 10px 18px calc(22px + env(safe-area-inset-bottom)); max-height: 88vh; overflow-y: auto; animation: sheetUp 340ms var(--ease-out); max-width: 560px; margin: 0 auto; transition: transform 220ms ease-in, opacity 220ms ease-in; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; background: var(--surface); border-radius: 26px 26px 0 0; padding: 10px 18px calc(22px + var(--safe-bottom)); max-height: calc(88vh - var(--safe-top)); overflow-y: auto; animation: sheetUp 340ms var(--ease-out); max-width: 560px; margin: 0 auto; transition: transform 220ms ease-in, opacity 220ms ease-in; }
 .sheet.closing { transform: translateY(100%); opacity: 0.6; }
 .sheet-grip { width: 40px; height: 5px; border-radius: 3px; background: var(--raised); margin: 0 auto 14px; }
 .sheet h3 { margin: 0 0 14px; font-size: 18px; }
@@ -154,7 +157,7 @@ button.card { transition: opacity 160ms ease; }
 @keyframes fade { from { opacity: 0; } }
 
 /* Тост */
-.toast { position: fixed; left: 16px; right: 16px; bottom: calc(var(--nav-h) + 22px); z-index: 60; background: var(--accent); color: var(--on-accent); border-radius: 16px; padding: 14px 16px; font-weight: 600; animation: up 320ms var(--ease-spring); max-width: 528px; margin: 0 auto; transition: opacity 240ms ease, transform 240ms ease; }
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(var(--nav-h) + 22px + var(--safe-bottom)); z-index: 60; background: var(--accent); color: var(--on-accent); border-radius: 16px; padding: 14px 16px; font-weight: 600; animation: up 320ms var(--ease-spring); max-width: 528px; margin: 0 auto; transition: opacity 240ms ease, transform 240ms ease; }
 .toast.leaving { opacity: 0; transform: translateY(12px); }
 .toast.err { background: #5A3530; color: #FFE3DD; }
 
@@ -188,4 +191,4 @@ button.card { transition: opacity 160ms ease; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .month-nav { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border-radius: 14px; padding: 4px; }
 .month-nav b { font-weight: 600; }
-.denied { padding: 48px 24px; text-align: center; display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.denied { padding: calc(48px + var(--safe-top)) 24px 48px; text-align: center; display: flex; flex-direction: column; gap: 14px; align-items: center; }

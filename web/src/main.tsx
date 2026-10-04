@@ -41,7 +41,16 @@ function App() {
   useEffect(() => {
     tg?.ready?.();
     tg?.expand?.();
-    try { tg?.setHeaderColor?.('#1B1E1A'); tg?.setBackgroundColor?.('#1B1E1A'); } catch { /* старые клиенты */ }
+    try {
+      tg?.setHeaderColor?.('#1B1E1A');
+      tg?.setBackgroundColor?.('#1B1E1A');
+      tg?.setBottomBarColor?.('#1B1E1A');
+      // Во весь экран — только на телефонах (Telegram 8.0+); на компьютере окно не трогаем
+      const mobile = ['ios', 'android', 'android_x'].includes(tg?.platform);
+      if (mobile && tg?.isVersionAtLeast?.('8.0') && !tg.isFullscreen) tg.requestFullscreen();
+      // Свайп вниз не закрывает приложение, пока листаете списки
+      if (tg?.isVersionAtLeast?.('7.7')) tg.disableVerticalSwipes();
+    } catch { /* старые клиенты Telegram */ }
     void reloadRef();
   }, [reloadRef]);
 
