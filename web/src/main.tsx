@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ApiError, get, haptic, tg, type Ref } from './lib';
-import { Ctx, Icon, Loader, Sheet, type AppCtx, type Route } from './ui';
+import { useRef } from 'react';
+import { Ctx, Icon, Intro, Sheet, type AppCtx, type Route } from './ui';
 import { Home } from './screens/Home';
 import { Orders, OrderForm, Debts } from './screens/Orders';
 import { Expenses, ExpenseForm } from './screens/Expenses';
@@ -12,6 +13,7 @@ import { More, Journal, Report } from './screens/More';
 import { Settings } from './screens/Settings';
 
 type Tab = 'home' | 'orders' | 'expenses' | 'more';
+const NAV: [Tab, string][] = [['home', 'Сводка'], ['orders', 'Заказы'], ['expenses', 'Расходы'], ['more', 'Ещё']];
 
 const SCREENS: Record<string, (p: any) => JSX.Element> = {
   order: OrderForm, debts: Debts, expense: ExpenseForm, money: Money, transfer: TransferForm,
@@ -25,7 +27,10 @@ function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [stack, setStack] = useState<Route[]>([]);
   const [version, setVersion] = useState(0);
-  const [toastMsg, setToast] = useState<{ text: string; err?: boolean } | null>(null);
+  const [toastMsg, setToast] = useState<{ text: string; err?: boolean; leaving?: boolean } | null>(null);
+  const [introDone, setIntroDone] = useState(false);
+  const dir = useRef<'fwd' | 'back'>('fwd');
+  const finishIntro = useCallback(() => setIntroDone(true), []);
   const [addOpen, setAddOpen] = useState(false);
 
   const reloadRef = useCallback(async () => {
@@ -40,7 +45,9 @@ function App() {
     void reloadRef();
   }, [reloadRef]);
 
-  const back = useCallback(() => setStack((s) => s.slice(0, -1)), []);
+  const stackWasOpen = useRef(false);
+  useEffect(() => { stackWasOpen.current = stack.length > 0; });
+  const back = useCallback(() => { dir.current = 'back'; setStack((s) => s.slice(0, -1)); }, []);
 
   // Системная кнопка «Назад» в Telegram
   useEffect(() => {
@@ -54,13 +61,15 @@ function App() {
 
   const ctx: AppCtx | null = useMemo(() => ref && {
     ref, reloadRef,
-    open: (r) => setStack((s) => [...s, r]),
+    open: (r) => { dir.current = 'fwd'; setStack((s) => [...s, r]); },
     back,
     toast: (text, err) => {
       haptic(err ? 'error' : 'success');
       setToast({ text, err });
-      window.clearTimeout((window as any).__toastT);
-      (window as any).__toastT = window.setTimeout(() => setToast(null), 2600);
+      const w = window as any;
+      window.clearTimeout(w.__toastT); window.clearTimeout(w.__toastT2);
+      w.__toastT = window.setTimeout(() => setToast((t) => t && { ...t, leaving: true }), 2400);
+      w.__toastT2 = window.setTimeout(() => setToast(null), 2650);
     },
     bump: () => setVersion((v) => v + 1),
     version,
@@ -68,40 +77,48 @@ function App() {
 
   if (fatal) {
     return (
-      <div className="denied">
+      <div className="denied page-fwd">
         <b style={{ fontSize: 18 }}>Не получилось открыть</b>
         <div className="muted">{fatal}</div>
         <button className="btn ghost small" onClick={reloadRef}>Попробовать снова</button>
       </div>
     );
   }
-  if (!ctx) return <Loader />;
+  if (!ctx || !introDone) return <Intro ready={!!ctx} onDone={finishIntro} />;
 
   const top = stack[stack.length - 1];
+  const goTab = (id: Tab) => { if (id === tab) return; haptic(); dir.current = 'fwd'; setTab(id); };
   const Top = top ? SCREENS[top.name] : null;
 
   return (
     <Ctx.Provider value={ctx}>
       <div className="app">
-        {Top ? <Top key={stack.length + top.name} {...(top.props || {})} /> : (
-          <>
+        {Top ? (
+          <div key={'s' + stack.length + top.name} className={dir.current === 'fwd' ? 'page-fwd' : 'page-back'}>
+            <Top {...(top.props || {})} />
+          </div>
+        ) : (
+          <div key={'t' + tab + stack.length} className={dir.current === 'back' && stackWasOpen.current ? 'page-back' : 'tab-in'}>
             {tab === 'home' && <Home />}
             {tab === 'orders' && <Orders />}
             {tab === 'expenses' && <Expenses />}
             {tab === 'more' && <More />}
-          </>
+          </div>
         )}
 
-        {!Top && (
-          <nav className="nav" aria-label="Разделы">
-            <div className="nav-group">
-              {([['home', 'Сводка'], ['orders', 'Заказы'], ['expenses', 'Расходы'], ['more', 'Ещё']] as [Tab, string][]).map(([id, label]) => (
-                <button key={id} className={tab === id ? 'on' : ''} aria-current={tab === id} onClick={() => { haptic(); setTab(id); }}>{label}</button>
-              ))}
+        <nav className={'nav' + (Top ? ' hidden' : '')} aria-label="Разделы">
+          <div className="nav-bar">
+            {NAV.slice(0, 2).map(([id, label]) => (
+              <button key={id} className={tab === id ? 'on' : ''} aria-current={tab === id} onClick={() => goTab(id)}>{label}</button>
+            ))}
+            <div className="fab-slot">
+              <button className={'fab' + (addOpen ? ' open' : '')} aria-label="Добавить" onClick={() => { haptic(); setAddOpen(true); }}><Icon name="plus" size={26} /></button>
             </div>
-            <button className="fab" aria-label="Добавить" onClick={() => { haptic(); setAddOpen(true); }}><Icon name="plus" /></button>
-          </nav>
-        )}
+            {NAV.slice(2).map(([id, label]) => (
+              <button key={id} className={tab === id ? 'on' : ''} aria-current={tab === id} onClick={() => goTab(id)}>{label}</button>
+            ))}
+          </div>
+        </nav>
 
         <Sheet open={addOpen} onClose={() => setAddOpen(false)} title="Что добавить?">
           <button className="action" onClick={() => { setAddOpen(false); ctx.open({ name: 'order' }); }}>
@@ -115,7 +132,7 @@ function App() {
           </button>
         </Sheet>
 
-        {toastMsg && <div className={'toast' + (toastMsg.err ? ' err' : '')} role="status">{toastMsg.text}</div>}
+        {toastMsg && <div className={'toast' + (toastMsg.err ? ' err' : '') + (toastMsg.leaving ? ' leaving' : '')} role="status">{toastMsg.text}</div>}
       </div>
     </Ctx.Provider>
   );

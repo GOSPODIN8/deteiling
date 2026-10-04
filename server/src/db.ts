@@ -16,8 +16,15 @@ interface Driver {
 let driver: Driver;
 
 export async function initDb() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL не задан. На Railway добавьте PostgreSQL и переменную DATABASE_URL.');
+  const e = process.env;
+  const url = e.DATABASE_URL || e.DATABASE_PRIVATE_URL || e.DATABASE_PUBLIC_URL ||
+    (e.PGHOST && e.PGUSER ? `postgresql://${encodeURIComponent(e.PGUSER)}:${encodeURIComponent(e.PGPASSWORD || '')}@${e.PGHOST}:${e.PGPORT || 5432}/${e.PGDATABASE || 'railway'}` : '');
+  if (!url) {
+    console.error('\n❌ Нет подключения к базе: переменная DATABASE_URL пустая.\n' +
+      'На Railway: сервис приложения → Variables → New Variable → DATABASE_URL = ${{Postgres.DATABASE_URL}}\n' +
+      '(в проекте должна быть добавлена база PostgreSQL), затем Redeploy.\n');
+    throw new Error('DATABASE_URL не задан');
+  }
   if (process.env.DB_DRIVER === 'psql') {
     const { createPsqlDriver } = await import('./dev/psqlShim.js');
     driver = createPsqlDriver(url);

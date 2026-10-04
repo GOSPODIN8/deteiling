@@ -51,8 +51,11 @@ export function ErrorBox({ text, onRetry }: { text: string; onRetry?: () => void
 }
 
 export function Seg<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void }) {
+  const idx = Math.max(0, options.findIndex((o) => o.id === value));
+  const n = options.length;
   return (
-    <div className="seg" role="tablist">
+    <div className="seg" role="tablist" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
+      <span className="seg-ind" aria-hidden="true" style={{ width: `calc((100% - 8px) / ${n})`, transform: `translateX(${idx * 100}%)` }} />
       {options.map((o) => (
         <button key={o.id} type="button" role="tab" aria-selected={o.id === value} className={o.id === value ? 'on' : ''} onClick={() => onChange(o.id)}>
           {o.label}
@@ -96,22 +99,116 @@ export function MoneyInput({ value, onChange, id, big, placeholder }: { value: s
 export const toNum = (s: string) => Number(String(s).replace(',', '.').replace(/\s/g, '')) || 0;
 
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: string; children: ReactNode }) {
+  const [mounted, setMounted] = useState(open);
+  const [closing, setClosing] = useState(false);
+  const last = useRef<{ title?: string; children: ReactNode }>({ title, children });
+  if (open) last.current = { title, children };
+
+  useEffect(() => {
+    if (open) { setMounted(true); setClosing(false); return; }
+    if (!mounted) return;
+    setClosing(true);
+    const t = setTimeout(() => { setMounted(false); setClosing(false); }, 220);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const requestClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(onClose, 200);
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') requestClose(); };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [open, onClose]);
-  if (!open) return null;
+  }, [open, requestClose]);
+
+  if (!mounted) return null;
+  const c = last.current;
   return (
     <>
-      <div className="sheet-bg" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title}>
+      <div className={'sheet-bg' + (closing ? ' closing' : '')} onClick={requestClose} />
+      <div className={'sheet' + (closing ? ' closing' : '')} role="dialog" aria-modal="true" aria-label={c.title}>
         <div className="sheet-grip" />
-        {title && <h3>{title}</h3>}
-        {children}
+        {c.title && <h3>{c.title}</h3>}
+        {c.children}
       </div>
     </>
+  );
+}
+
+/** Плавный счётчик для крупных чисел */
+export function useCountUp(value: number, ms = 650) {
+  const [shown, setShown] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const start = from.current;
+    if (reduce || start === value) { setShown(value); from.current = value; return; }
+    let raf = 0;
+    const t0 = performance.now();
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / ms);
+      const e = 1 - Math.pow(1 - k, 3);
+      setShown(start + (value - start) * e);
+      if (k < 1) raf = requestAnimationFrame(step); else from.current = value;
+    };
+    raf = requestAnimationFrame(step);
+    return () => { cancelAnimationFrame(raf); from.current = value; };
+  }, [value, ms]);
+  return shown;
+}
+
+/* ---------- Логотип HAYANMI ---------- */
+export const LOGO_TOP = 'M0 0H354V242H545V0H900V289L450 434L0 289Z';
+export const LOGO_BOTTOM = 'M0 373L450 515L900 373V881H545V663H354V881H0Z';
+export const LOGO_GAP = 'M0 289L450 434L900 289V373L450 515L0 373Z';
+
+export function Logo({ size = 28, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size * 881 / 900} viewBox="0 0 900 881" aria-hidden="true">
+      <path d={LOGO_TOP} fill={color} /><path d={LOGO_BOTTOM} fill={color} />
+    </svg>
+  );
+}
+
+/** Интро при открытии: две половины знака сходятся, по зазору пробегает блик */
+export function Intro({ ready, onDone }: { ready: boolean; onDone: () => void }) {
+  const [minDone, setMinDone] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const t = setTimeout(() => setMinDone(true), reduce ? 200 : 1700);
+    return () => clearTimeout(t);
+  }, []);
+  useEffect(() => {
+    if (!ready || !minDone) return;
+    setLeaving(true);
+    const t = setTimeout(onDone, 450);
+    return () => clearTimeout(t);
+  }, [ready, minDone, onDone]);
+  return (
+    <div className={'intro' + (leaving ? ' out' : '')} aria-label="HAYANMI DETEILING">
+      <svg className="intro-logo" width="104" height="102" viewBox="0 0 900 881" aria-hidden="true">
+        <defs>
+          <linearGradient id="shine" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" stopColor="var(--accent)" stopOpacity="0" />
+            <stop offset="0.5" stopColor="#F4F7EF" />
+            <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+          <clipPath id="gapclip"><path d={LOGO_GAP} /></clipPath>
+        </defs>
+        <path className="intro-top" d={LOGO_TOP} fill="var(--text)" />
+        <path className="intro-bottom" d={LOGO_BOTTOM} fill="var(--text)" />
+        <g clipPath="url(#gapclip)">
+          <rect className="intro-shine" x="-400" y="250" width="400" height="300" fill="url(#shine)" />
+        </g>
+      </svg>
+      <div className="intro-name">HAYANMI</div>
+      <div className="intro-sub">DETEILING</div>
+    </div>
   );
 }
 

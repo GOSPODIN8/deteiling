@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { get, money, plural, shortDate, today, weekday } from '../lib';
-import { ErrorBox, Loader, Ring, Seg, useApp, useLoad } from '../ui';
+import { ErrorBox, Loader, Logo, Ring, Seg, useApp, useCountUp, useLoad } from '../ui';
 
 type P = 'today' | 'week' | 'month';
 
@@ -10,6 +10,9 @@ export function Home() {
   const { data, error, loading, reload } = useLoad(() => get(`/api/dashboard?period=${period}`), [period]);
 
   const p = data?.pnl;
+  const profit = useCountUp(p?.profit ?? 0);
+  const revenue = useCountUp(p?.revenue ?? 0);
+  const costs = useCountUp(p?.totalCosts ?? 0);
   const t = today();
   const maxDay = p ? Math.max(1, ...p.byDay.map((d: any) => d.revenue)) : 1;
   const balances = (data?.balances || []).filter((b: any) => b.kind !== 'person' || Math.abs(b.balance) > 0.009);
@@ -18,9 +21,12 @@ export function Home() {
   return (
     <main className="screen">
       <div className="between" style={{ marginTop: 4 }}>
-        <div>
+        <div className="row" style={{ gap: 12 }}>
+          <span style={{ color: 'var(--accent)', display: 'flex' }}><Logo size={34} /></span>
+          <div>
           <div className="small muted">{ref.centerName}</div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Привет, {ref.me.name.split(' ')[0]}</div>
+          </div>
         </div>
       </div>
 
@@ -34,9 +40,9 @@ export function Home() {
           <section className="card ring-card" aria-label="Итоги периода">
             <Ring percent={p.revenue > 0 ? Math.max(0, p.margin) : 0} />
             <div className="kv">
-              <div><span>Прибыль</span><b className={'big num' + (p.profit < 0 ? ' danger' : '')}>{money(p.profit)}</b></div>
-              <div><span>Пришло</span><b className="num">{money(p.revenue)}</b></div>
-              <div><span>Ушло</span><b className="num expense">{money(p.totalCosts)}</b></div>
+              <div><span>Прибыль</span><b className={'big num' + (p.profit < 0 ? ' danger' : '')}>{money(Math.round(profit))}</b></div>
+              <div><span>Пришло</span><b className="num">{money(Math.round(revenue))}</b></div>
+              <div><span>Ушло</span><b className="num expense">{money(Math.round(costs))}</b></div>
             </div>
           </section>
 
